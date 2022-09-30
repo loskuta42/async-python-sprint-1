@@ -1,5 +1,5 @@
 import os
-
+from multiprocessing import Queue, Process
 
 CITIES = {
     "MOSCOW": "https://code.s3.yandex.net/async-module/moscow-response.json",
@@ -43,6 +43,7 @@ FIELDS_EN_TO_RUS = {
 
 }
 
+
 def find_file(name):
     path = os.getcwd()
     for root, dirs, files in os.walk(path):
@@ -71,6 +72,35 @@ def get_bad_conditions_from_file(path_to_file):
                 # if line.find(word) != -1 and (condition := line.split()[0]) not in bad_conditions_res:
                 #     bad_conditions_res.append(condition)
     return tuple(bad_conditions_res)
+
+
+class Producer(Process):
+    def __init__(self, queue: Queue, functions: [list]):
+        Process.__init__(self)
+        self._queue = queue
+        self._functions = functions
+
+    def run(self):
+        for function in self._functions:
+            self._queue.put(function)
+            # time.sleep(1)
+
+
+class Consumer(Process):
+    def __init__(self, queue: Queue):
+        Process.__init__(self)
+        self._queue = queue
+        self._temp_data = None
+
+    def run(self):
+        while True:
+            if self._queue.empty():
+                break
+            else:
+                # time.sleep(1)
+                function = self._queue.get()
+                print(function.__name__)
+                self._temp_data = function(self._temp_data) if self._temp_data else function()
 
 
 BAD_CONDITIONS = get_bad_conditions_from_file(path_to_file)
