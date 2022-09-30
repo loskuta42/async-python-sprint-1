@@ -1,5 +1,6 @@
 import os
 
+
 CITIES = {
     "MOSCOW": "https://code.s3.yandex.net/async-module/moscow-response.json",
     "PARIS": "https://code.s3.yandex.net/async-module/paris-response.json",
@@ -18,7 +19,7 @@ CITIES = {
     "CAIRO": "https://code.s3.yandex.net/async-module/cairo-response.json",
 }
 
-CITIES_RUS = {
+FIELDS_EN_TO_RUS = {
     'ABUDHABI': 'Абу Даби',
     'BEIJING': 'Пекин',
     'BERLIN': 'Берлин',
@@ -33,7 +34,13 @@ CITIES_RUS = {
     'ROMA': 'Рим',
     'SPETERSBURG': 'Санкт-Петербург',
     'VOLGOGRAD': 'Волгоград',
-    'WARSZAWA': 'Варшава'
+    'WARSZAWA': 'Варшава',
+    'avg_temp': 'Температура, среднее',
+    'cond_hours': 'Без осадков, часов',
+    'AVG': 'Среднее',
+    'dates': 'День',
+    'rating': 'Рейтинг'
+
 }
 
 def find_file(name):
@@ -59,8 +66,10 @@ def get_bad_conditions_from_file(path_to_file):
     with open(path_to_file, encoding='utf-8') as file:
         for line in file:
             for word in bad_conditions_words:
-                if line.find(word) != -1 and (condition := line.split()[0]) not in bad_conditions_res:
-                    bad_conditions_res.append(condition)
+                if line.find(word) != -1 and line.split()[0] not in bad_conditions_res:
+                    bad_conditions_res.append(line.split()[0])
+                # if line.find(word) != -1 and (condition := line.split()[0]) not in bad_conditions_res:
+                #     bad_conditions_res.append(condition)
     return tuple(bad_conditions_res)
 
 
@@ -76,8 +85,8 @@ def check_python_version():
     import sys
 
     if (
-        sys.version_info.major < MIN_MAJOR_PYTHON_VER
-        or sys.version_info.minor < MIN_MINOR_PYTHON_VER
+            sys.version_info.major < MIN_MAJOR_PYTHON_VER
+            or sys.version_info.minor < MIN_MINOR_PYTHON_VER
     ):
         raise Exception(
             "Please use python version >= {}.{}".format(
