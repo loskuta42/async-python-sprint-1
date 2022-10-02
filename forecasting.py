@@ -1,45 +1,67 @@
-# import logging
-# import threading
-# import subprocess
+import logging
 from multiprocessing import Queue
+from threading import Lock
 
-from api_client import YandexWeatherAPI
 from tasks import (
-    DataFetchingTask,
-    DataCalculationTask,
     DataAggregationTask,
     DataAnalyzingTask,
+    DataCalculationTask,
+    DataFetchingTask
 )
-from utils import CITIES, Producer, Consumer
+from utils import CITIES
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    filemode='w',
+    datefmt='%H:%M:%S',
+    format='%(asctime)s: %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
 
 
 def forecast_weather():
     """
     Анализ погодных условий по городам
     """
-    queue = Queue()
-    out_file_name = 'result.json'
-    data_fetch_func = DataFetchingTask(list(CITIES.keys())).get_data
-    data_calculation_func = DataCalculationTask('2022-05-26', '2022-05-29').calculate_data
-    data_agregation_func = DataAggregationTask(out_file_name).write_data_to_file
-    data_analyzing_func = DataAnalyzingTask(out_file_name).get_best_cities
-    functions = [
-        data_fetch_func,
-        data_calculation_func,
-        data_agregation_func,
-        data_analyzing_func
-    ]
-    process_producer = Producer(queue=queue, functions=functions)
-    process_consumer = Consumer(queue=queue)
-    process_producer.start()
-    process_consumer.start()
-    process_producer.join()
-    process_consumer.join()
 
-    # city_name = "MOSCOW"
-    # ywAPI = YandexWeatherAPI()
-    # resp = ywAPI.get_forecasting(city_name)
-    # pass
+    queue = Queue()
+    result_queue = Queue()
+    data_fetch_process = DataFetchingTask(cities=CITIES, queue=queue)
+    data_calculation_process = DataCalculationTask(
+        start_day='2022-05-26',
+        finish_day='2022-05-29',
+        queue=queue,
+        result_queue=result_queue
+    )
+    try:
+        data_fetch_process.start()
+        data_calculation_process.start()
+        data_fetch_process.join()
+        data_calculation_process.join()
+    except Exception as ex:
+        logger.error(f'forecast_weather - Запуск процессов - {ex}')
+
+    results_of_calculations = result_queue.get()
+    lock = Lock()
+    out_file_name = 'result.json'
+
+    data_aggregation_thread = DataAggregationTask(
+        lock=lock,
+        file_name=out_file_name,
+        results_of_calculations=results_of_calculations
+    )
+    data_analyzing_thread = DataAnalyzingTask(
+        lock=lock,
+        file_name=out_file_name
+    )
+    try:
+        data_aggregation_thread.start()
+        data_analyzing_thread.start()
+    except Exception as ex:
+        logger.error(f'forecast_weather - Запуск потоков с блокировкой- {ex}')
+    logger.info('Завершено!')
 
 
 if __name__ == "__main__":

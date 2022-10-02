@@ -1,8 +1,9 @@
-import logging
 import json
+import logging
 from urllib.request import urlopen
 
 from utils import CITIES, ERR_MESSAGE_TEMPLATE
+
 
 logger = logging.getLogger()
 
