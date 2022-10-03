@@ -1,21 +1,23 @@
 import concurrent
-from datetime import datetime
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from multiprocessing import Process, Queue
 from statistics import mean
 from threading import Lock, Thread
 from typing import Optional
 
 from api_client import YandexWeatherAPI
-from utils import FIELDS_EN_TO_RUS, find_file, get_bad_conditions_from_file
+from utils import FIELDS_EN_TO_RUS
 
 
 logger = logging.getLogger(__name__)
 
+
 class DataFetchingTask(Process):
     """Data fetching process."""
+
     def __init__(self, cities: dict[str, str], queue: Queue) -> None:
         """
         :param cities: dictionary with cities-keys and urls-values
@@ -36,7 +38,7 @@ class DataFetchingTask(Process):
             logger.exception('Something goes wrong in _get_data_by_city method')
 
     def run(self):
-        logger.info('Запущен процесс получения данных.')
+        logger.info('Run process of data fetching.')
         with ThreadPoolExecutor(max_workers=5) as pool:
             futures = [pool.submit(self._get_data_by_city, city) for city in self._cities]
             for future in concurrent.futures.as_completed(futures):
@@ -45,7 +47,7 @@ class DataFetchingTask(Process):
                     if result:
                         self._queue.put(result)
                         logger.info(
-                            'Got data for %s.' % result["city_name"]
+                            'Got data for %s.', result['city_name']
                         )
                 except Exception:
                     logger.exception('Something goes wrong in DataFetchingTask')
@@ -64,13 +66,14 @@ class DataCalculationTask(Process):
             finish_day: str,
             queue: Queue,
             result_queue: Queue,
-            bad_conditions : list
+            bad_conditions: list
     ) -> None:
         """
         :param start_day: bottom day of period in format yyyy-mm-dd
         :param finish_day: top day of period in format yyyy-mm-dd
         :param queue: tasks
         :param result_queue: queue for result of calculations
+        :param bad_conditions: list of best conditions
         :return: None
         """
         super().__init__()
@@ -101,21 +104,21 @@ class DataCalculationTask(Process):
         ]
 
     def _get_filtered_dates_data(self, city_data: dict) -> Optional[dict]:
-        result = {
-            'city_name': city_data['city_name'],
-            'dates': {
-                self._get_formatted_date(day): (hours := self._get_period_of_hours(day))
-                for day in self._get_days_period(city_data)
-                if day['hours'] and hours
-            }
-        }
+        result = {'city_name': city_data['city_name']}
+        dates = {}
+        for day in self._get_days_period(city_data):
+            hours = self._get_period_of_hours(day)
+            if not hours:
+                continue
+            date = self._get_formatted_date(day)
+            dates[date] = hours
+        result.update({'dates': dates})
         if not result['dates']:
             city_name = result['city_name']
-            logger.error(
-                'Not found days in the given interval for %s.' % city_name
+            logger.exception(
+                'Not found days in the given interval for %s.', city_name
             )
             return None
-
         return result
 
     @staticmethod
@@ -191,19 +194,18 @@ class DataCalculationTask(Process):
         result_of_calculations.update(avg_data_for_city)
         return result_of_calculations
 
-
     def run(self):
         logger.info('Run process of data calculation.')
         results = []
         while (data_from_api := self._queue.get()) is not None:
-            if (city_data := self._calculate_city_data(data_from_api))
+            if city_data := self._calculate_city_data(data_from_api):
                 results.append(city_data)
             logger.info(
-                'Results is calculated for  %s.' % data_from_api["city_name"]
+                'Results is calculated for  %s.', data_from_api['city_name']
             )
         if results:
             results.sort(
-                key=lambda index: index['total_score'],
+                key=lambda ind: ind['total_score'],
                 reverse=True
             )
             current_score = results[0]['total_score']
@@ -222,13 +224,20 @@ class DataCalculationTask(Process):
 
 
 class DataAggregationTask(Thread):
-
+    """
+    Data aggregation thread.
+    """
     def __init__(
             self,
             lock: Lock,
             results_of_calculations: list,
             file_name: str = 'result.json'
     ) -> None:
+        """
+        :param lock: lock for synchronization of threads
+        :param results_of_calculations: results of data calculations process
+        :param file_name: file name for writing data
+        """
         super().__init__()
         self._file_name = file_name
         self._lock = lock
@@ -249,7 +258,7 @@ class DataAggregationTask(Thread):
                     result[FIELDS_EN_TO_RUS[key]] = value
             return result
         except KeyError:
-            logger.exception('Something goes wrong in _get_renamed_dict method')
+            logger.exception('Key error in _get_renamed_dict method')
 
     def start(self):
         with self._lock:
@@ -263,8 +272,14 @@ class DataAggregationTask(Thread):
 
 
 class DataAnalyzingTask(Thread):
-
+    """
+    Data analyzing thread.
+    """
     def __init__(self, lock: Lock, file_name: str = 'result.json') -> None:
+        """
+        :param lock: lock for synchronization of threads
+        :param file_name: file name for reading data
+        """
         super().__init__()
         self._file_name = file_name
         self._lock = lock
@@ -281,4 +296,6 @@ class DataAnalyzingTask(Thread):
             ]
             sentence_start = 'The best city' if len(result) == 1 else 'The best cities'
             result_for_print = ', '.join(result)
-            logger.info(f'{sentence_start} for a vacation is - {result_for_print}')
+            logger.info(
+                '%s for a vacation is - %s.', sentence_start, result_for_print
+            )

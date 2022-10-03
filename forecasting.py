@@ -2,12 +2,10 @@ import logging
 from multiprocessing import Queue
 from threading import Lock
 
-from tasks import (
-    DataAggregationTask,
-    DataAnalyzingTask,
-    DataCalculationTask,
-    DataFetchingTask
-)
+from tasks import (DataAggregationTask,
+                   DataAnalyzingTask,
+                   DataCalculationTask,
+                   DataFetchingTask)
 from utils import CITIES, find_file, get_bad_conditions_from_file
 
 
@@ -17,6 +15,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S',
     format='%(asctime)s: %(name)s - %(levelname)s - %(message)s'
 )
+
 
 logger = logging.getLogger(__name__)
 
