@@ -53,23 +53,29 @@ def find_file(name):
 
 def get_bad_conditions_from_file(path_to_file):
     bad_conditions_words = [
-        'дождь',
-        'град',
-        'снег',
-        'морось',
-        'ливень',
-        'гроза'
+        'drizzle',
+        'light-rain',
+        'rain',
+        'moderate-rain',
+        'heavy-rain',
+        'continuous-heavy-rain',
+        'showers',
+        'wet-snow',
+        'light-snow',
+        'snow',
+        'snow-showers',
+        'hail',
+        'thunderstorm',
+        'thunderstorm-with-rain',
+        'thunderstorm-with-hail'
     ]
     bad_conditions_res = []
     with open(path_to_file, encoding='utf-8') as file:
         for line in file:
-            for word in bad_conditions_words:
-                if line.find(word) != -1 and line.split()[0] not in bad_conditions_res:
-                    bad_conditions_res.append(line.split()[0])
+            if (bad_cond := line.split()[0]) in bad_conditions_words:
+                bad_conditions_res.append(bad_cond)
     return tuple(bad_conditions_res)
 
-
-BAD_CONDITIONS = get_bad_conditions_from_file(find_file('conditions.txt'))
 
 ERR_MESSAGE_TEMPLATE = "Something wrong. Please contact with mentor."
 
